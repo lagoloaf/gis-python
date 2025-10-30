@@ -1,0 +1,78 @@
+#---
+#This script is used to filter through sightings of birds accessed through eBird.org. It then produces points of each sighting and filters them by month in ArcGIS Pro. This is useful in showing the movements of migratory birds as depicted using open source data from birders.
+#It is designed to be used for eBird Data Products. These can be found and downloaded at https://science.ebird.org/en/use-ebird-data/download-ebird-data-products
+
+#---
+
+import csv
+import arcpy
+import os
+import pandas as pd
+
+#Part 1: Filter eBird sightings by month using pandas module
+# ---
+
+arcpy.env.overwriteOutput = True
+
+output_path = r"C:\Users\space\OneDrive\Desktop\GEOG 485 PSU\Final Project Data"
+txt_path = r"C:\Users\space\OneDrive\Desktop\GEOG 485 PSU\Final Project Data\ebd_varthr_smp_relSep-2025.txt"   #Change depending on file path, bird species dataset. Example bird species is the varied thrush.
+csv_path = txt_path.replace(".txt", ".csv")
+
+#Read tab-separated eBird data
+df = pd.read_csv(txt_path, sep="\t")
+
+#Clean column names (remove spaces at ends)
+df.columns = df.columns.str.strip()
+
+#Convert 'OBSERVATION DATE' to datetime and extract month
+df["Month"] = pd.to_datetime(df["OBSERVATION DATE"], errors="coerce").dt.month
+
+#Drop rows with missing month (invalid dates)
+df = df.dropna(subset=["Month"])
+
+#Create new dataframe and export to process in ArcGIS Pro
+output_filename = 'ebird_cleaned_df.csv'
+
+df_for_export = pd.DataFrame(df, columns=["COMMON NAME", "SCIENTIFIC NAME", "LATITUDE", "LONGITUDE", "OBSERVATION DATE", "Month"])
+df_for_export.to_csv(os.path.join(output_path, output_filename), index=False)
+
+#Part 2: CSV to points
+# ---
+
+csv_input = os.path.join(output_path, output_filename)
+
+#Create a new file geodatabase for output
+gdb_name = "ebird_points.gdb"
+gdb_path = os.path.join(output_path, gdb_name)
+arcpy.management.CreateFileGDB(output_path, gdb_name)
+
+#Define spatial reference and output path
+sr = arcpy.SpatialReference(4326)  # WGS 84
+out_fc = os.path.join(gdb_path, "ebird_points_all")
+
+#Create point feature class from the CSV
+arcpy.management.XYTableToPoint(
+    in_table=csv_input,
+    out_feature_class=out_fc,
+    x_field="LONGITUDE",
+    y_field="LATITUDE",
+    coordinate_system=sr
+)
+
+#Part 3: Select by month and create 12 shapefiles
+# ---
+
+in_fc = os.path.join(gdb_path, "ebird_points_all")
+
+#Geodatabase for outputs
+out_gdb_name = "monthly_points.gdb"
+out_gdb_path = os.path.join(output_path, out_gdb_name)
+arcpy.management.CreateFileGDB(output_path, out_gdb_name)
+
+month_field = "Month"
+
+#Exports the 12 months of sightings directly from the feature class
+for m in range(1, 13):
+    where = f"{arcpy.AddFieldDelimiters(in_fc, month_field)} = {m}"
+    out_fc = os.path.join(out_gdb_path, f"ebird_month_{m:02d}")
+    arcpy.analysis.Select(in_fc, out_fc, where)
