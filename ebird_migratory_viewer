@@ -14,8 +14,8 @@ import pandas as pd
 
 arcpy.env.overwriteOutput = True
 
-output_path = r"C:\Users\space\OneDrive\Desktop\GEOG 485 PSU\Final Project Data"
-txt_path = r"C:\Users\space\OneDrive\Desktop\GEOG 485 PSU\Final Project Data\ebd_varthr_smp_relSep-2025.txt"   #Change depending on file path, bird species dataset. Example bird species is the varied thrush.
+output_path = r"file path"
+txt_path = r"file path\ebd_varthr_smp_relSep-2025.txt"   #Change depending on file path, bird species dataset. Example bird species is the varied thrush.
 csv_path = txt_path.replace(".txt", ".csv")
 
 #Read tab-separated eBird data
